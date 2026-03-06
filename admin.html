@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kariuki Studio Admin Dashboard</title>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  /* MOBILE RESPONSIVE FIXES */
+@media (max-width: 900px) {
+  /* Navigation menu stacks vertically */
+  nav ul {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  /* Cards stack */
+  .grid.md\:grid-cols-3 { grid-template-columns: 1fr !important; }
+  .grid.md\:grid-cols-2 { grid-template-columns: 1fr !important; }
+
+  /* Canvas scaling */
+  canvas { width: 100% !important; height: auto !important; }
+
+  /* Table scroll */
+  .card.overflow-x-auto { overflow-x: auto; }
+}
+
+  body {
+    background-image: url('https://images.unsplash.com/photo-1508780709619-79562169bc64?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w5NTIyOXwwfDF8c2VhcmNofDF8fGVsZWdhbnQlMjBhZG1pbnxlbnwwfHx8fDE2ODY5MzY1NjN8&ixlib=rb-4.0.3&q=80&w=3840'); 
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    font-family: 'Arial', sans-serif;
+    color: #fff;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.55);
+    z-index: -1;
+  }
+
+  .card {
+    background: rgba(30,30,30,0.85);
+    backdrop-filter: blur(10px);
+    border-radius: 1rem;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    padding: 1.5rem;
+    transition: transform 0.3s;
+    min-width: 250px;
+  }
+
+  .card:hover {
+    transform: translateY(-5px);
+  }
+
+  table th, table td {
+    padding: 0.75rem 1rem;
+  }
+
+  table tr:hover {
+    background-color: rgba(255,255,255,0.05);
+  }
+
+  nav button:hover {
+    background-color: #c53030;
+  }
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- Navbar -->
+<nav class="bg-black bg-opacity-80 backdrop-blur-md shadow-md p-4 flex justify-between items-center fixed w-full z-10">
+  <div class="flex items-center gap-4">
+    <!-- Update this src to your actual logo file path -->
+    <img src="WhatsApp Image 2026-02-15 at 11.18.10 PM.jpeg" alt="Studio Logo" class="w-12 h-12 rounded-full object-cover">
+    <h1 class="text-2xl font-bold tracking-wide">KARIUKI RECORDS STUDIOZ</h1>
+  </div>
+  <h2 style="color: blue; font-family: Arial, Helvetica, sans-serif; font-size: 30px;">PRO KARIS</h2>
+  <button onclick="logout()" class="bg-red-600 px-4 py-2 rounded font-semibold transition duration-300">Logout</button>
+</nav>
+
+<main class="p-6 pt-24 space-y-6 max-w-7xl mx-auto">
+
+  <!-- Summary Cards -->
+  <div class="grid md:grid-cols-3 gap-6">
+    <div class="card">
+      <h2 class="text-lg font-semibold mb-2 text-gray-300">Total Revenue</h2>
+      <p id="totalRevenue" class="text-3xl font-bold text-yellow-400">KES 0</p>
+    </div>
+    <div class="card">
+      <h2 class="text-lg font-semibold mb-2 text-gray-300">Total Bookings</h2>
+      <p id="totalBookings" class="text-3xl font-bold text-yellow-400">0</p>
+    </div>
+    <div class="card">
+      <h2 class="text-lg font-semibold mb-2 text-gray-300">Popular Service</h2>
+      <p id="topService" class="text-3xl font-bold text-yellow-400">-</p>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="grid md:grid-cols-2 gap-6">
+    <div class="card">
+      <h2 class="text-lg font-semibold mb-3 text-gray-300">Bookings Overview</h2>
+      <canvas id="bookingsChart"></canvas>
+    </div>
+    <div class="card">
+      <h2 class="text-lg font-semibold mb-3 text-gray-300">Revenue by Service</h2>
+      <canvas id="revenueChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Recent Payments -->
+  <div class="card overflow-x-auto">
+    <h2 class="text-lg font-semibold mb-4 text-gray-300">Recent Payments</h2>
+    <table class="min-w-full text-sm text-left">
+      <thead>
+        <tr class="border-b border-gray-600">
+          <th>Name</th>
+          <th>Phone</th>
+          <th>Service</th>
+          <th>Amount</th>
+          <th>Payment Method</th>
+          <th>Date</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="paymentTable"></tbody>
+    </table>
+  </div>
+
+</main>
+
+<script>
+async function loadDashboard() {
+  try {
+   const res = await fetch("http://localhost:3000/api/admin-data");
+    const data = await res.json();
+
+    document.getElementById("totalRevenue").textContent = "KES " + data.totalRevenue.toLocaleString();
+    document.getElementById("totalBookings").textContent = data.totalBookings;
+    document.getElementById("topService").textContent = data.topService;
+
+    const table = document.getElementById("paymentTable");
+    table.innerHTML = data.payments.map(p => `
+      <tr class="border-b border-gray-700">
+        <td>${p.name}</td>
+        <td>${p.phone}</td>
+        <td>${p.service}</td>
+        <td class="text-yellow-400">KES ${p.amount.toLocaleString()}</td>
+        <td>${p.method}</td>
+        <td>${new Date(p.date).toLocaleDateString()}</td>
+        <td>${p.status}</td>
+      </tr>
+    `).join("");
+
+    // Bookings chart
+    new Chart(document.getElementById("bookingsChart"), {
+      type: "line",
+      data: {
+        labels: data.chart.labels,
+        datasets: [{ label: "Bookings", data: data.chart.values, borderColor: "#d4af37", fill: false }]
+      },
+      options: { responsive: true, maintainAspectRatio: false }
+    });
+
+    // Revenue chart
+    new Chart(document.getElementById("revenueChart"), {
+      type: "bar",
+      data: {
+        labels: Object.keys(data.revenueByService),
+        datasets: [{ label: "Revenue (KES)", data: Object.values(data.revenueByService), backgroundColor: "#d4af37" }]
+      },
+      options: { responsive: true, maintainAspectRatio: false }
+    });
+
+  } catch (err) {
+    console.error("Error loading dashboard:", err);
+    alert("Failed to load dashboard data.");
+  }
+}
+
+loadDashboard();
+
+function logout() {
+  localStorage.removeItem('adminEmail'); 
+  window.location.href = "login.html";
+}
+</script>
+
+</body>
+</html>
